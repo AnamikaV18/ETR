@@ -623,7 +623,7 @@ export default function App() {
   const logs = useMemo(() => TARS_MAP[phase] ?? TARS_MAP.idle, [phase]);
 
   return (
-    <main className="h-screen w-screen overflow-hidden flex flex-col bg-black">
+    <main className="h-screen w-screen overflow-hidden flex flex-col justify-between bg-black">
       <style>{appStyles}</style>
 
       <header className="er-header">
@@ -634,7 +634,7 @@ export default function App() {
         </div>
 
         <div className="title-stack">
-          <div className="eyebrow">ISTE BITSINDRI PRESENTS TRIVENI&apos;26</div>
+          <div className="eyebrow">ISTE BITS PRESENTS TRIVENI&apos;26</div>
           <h1>ESCAPE THE ROOM</h1>
           <div className="title-rule" />
         </div>
