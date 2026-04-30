@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import isteLogo from "@/assets/iste_logo.png";
 import triveniLogo from "@/assets/triveni_logo.png";
 
-const PREDICT_ENDPOINT = "https://etr-uola.onrender.com";
+const PREDICT_ENDPOINT = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 const TARS_MAP = {
   idle: [
