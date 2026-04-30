@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import isteLogo from "@/assets/iste_logo.png";
 import triveniLogo from "@/assets/triveni_logo.png";
 
-const PREDICT_ENDPOINT = "https://etr-uola.onrender.com";
+const PREDICT_ENDPOINT = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 const TARS_MAP = {
   idle: [
@@ -457,13 +457,20 @@ function formatTimer(value) {
 function normalizePrediction(payload) {
   if (!payload || typeof payload !== "object") return "RECEIVED";
   return String(
-    payload.prediction ??
+    payload.access_code ??
+      payload.prediction ??
       payload.label ??
       payload.class ??
       payload.result ??
       payload.status ??
       "RECEIVED",
   ).toUpperCase();
+}
+
+function getDetectedObject(payload) {
+  if (!payload || !payload.detections || payload.detections.length === 0) return null;
+  const best = payload.detections[0];
+  return `${best.class.toUpperCase()} (${Math.round(best.confidence * 100)}%)`;
 }
 
 export default function App() {
@@ -477,6 +484,7 @@ export default function App() {
   const [remaining, setRemaining] = useState(5);
   const [cameraState, setCameraState] = useState("REQUESTING OPTICS");
   const [scanResult, setScanResult] = useState("STANDBY");
+  const [detectedObject, setDetectedObject] = useState(null);
 
   const isScanning = phase === "scanning";
 
@@ -559,11 +567,16 @@ export default function App() {
       const formData = new FormData();
       formData.append("file", blob, "escape-room-scan.jpg");
 
-      const response = await fetch(PREDICT_ENDPOINT, { method: "POST", body: formData });
+      const response = await fetch(PREDICT_ENDPOINT + "/predict", { 
+        method: "POST", 
+        body: formData,
+        signal: AbortSignal.timeout(120000) // 2 min timeout for slow Render instances
+      });
       if (!response.ok) throw new Error(`Predict failed: ${response.status}`);
 
       const payload = await response.json().catch(() => ({ status: "RECEIVED" }));
       setScanResult(normalizePrediction(payload));
+      setDetectedObject(getDetectedObject(payload));
       setPhase("complete");
     } catch {
       setScanResult("LINK FAULT");
@@ -767,6 +780,11 @@ export default function App() {
             <span>
               LINK <b>{phase === "error" ? "FAULT" : "ARMED"}</b>
             </span>
+            {detectedObject && (
+              <span>
+                TARGET <b style={{ color: "var(--etr-amber-bright)" }}>{detectedObject}</b>
+              </span>
+            )}
           </div>
         </aside>
       </section>
