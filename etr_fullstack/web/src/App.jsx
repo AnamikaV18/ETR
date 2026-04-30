@@ -559,7 +559,11 @@ export default function App() {
       const formData = new FormData();
       formData.append("file", blob, "escape-room-scan.jpg");
 
-      const response = await fetch(PREDICT_ENDPOINT, { method: "POST", body: formData });
+      const response = await fetch(PREDICT_ENDPOINT, { 
+        method: "POST", 
+        body: formData,
+        signal: AbortSignal.timeout(120000) // 2 min timeout for slow Render instances
+      });
       if (!response.ok) throw new Error(`Predict failed: ${response.status}`);
 
       const payload = await response.json().catch(() => ({ status: "RECEIVED" }));
