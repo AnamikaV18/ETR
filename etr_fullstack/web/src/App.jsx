@@ -95,7 +95,9 @@ const appStyles = `
   .escape-room-app, .escape-room-app * { box-sizing: border-box; }
 
   .escape-room-app {
-    min-height: 100vh;
+    height: 100vh; /* FIX: Changed from min-height to lock it to your laptop screen */
+    display: flex; /* FIX: Added flex to manage the internal layout smoothly */
+    flex-direction: column; /* FIX */
     overflow: hidden;
     position: relative;
     color: var(--etr-text);
@@ -128,6 +130,7 @@ const appStyles = `
     padding: clamp(1rem, 2.2vw, 1.55rem) clamp(0.9rem, 3vw, 2.4rem) 0.9rem;
     border-bottom: 1px solid var(--etr-line);
     background: linear-gradient(180deg, rgba(20, 15, 9, 0.94), rgba(3, 3, 3, 0.58));
+    flex-shrink: 0; /* FIX: Prevents the header from squishing */
   }
 
   .brand-cell { display: flex; align-items: center; }
@@ -191,8 +194,9 @@ const appStyles = `
       "telemetry scanner clock"
       "terminal scanner diagnostics";
     gap: clamp(0.72rem, 1.45vw, 1.05rem);
-    height: calc(100vh - 8.5rem);
-    min-height: 31rem;
+    flex: 1; /* FIX: Takes up the rest of the screen below the header */
+    min-height: 0; /* FIX: Prevents the grid from pushing out of the window */
+    overflow: hidden; /* FIX: Stops the whole page from scrolling */
     padding: clamp(0.75rem, 1.45vw, 1.1rem) clamp(0.75rem, 2vw, 1.5rem) 1rem;
   }
 
@@ -258,6 +262,8 @@ const appStyles = `
     grid-template-rows: 1fr auto;
     gap: 0.85rem;
     align-items: center;
+    overflow-y: auto; /* FIX: Only this center column will scroll if needed */
+    padding-bottom: 1rem; /* FIX: Gives the button breathing room */
   }
 
   .scanner-frame {
@@ -265,6 +271,7 @@ const appStyles = `
     max-width: 44rem;
     min-width: min(100%, 19rem);
     aspect-ratio: 1;
+    max-height: 40vh; /* FIX: This physically stops the camera from getting too tall */
     justify-self: center;
     position: relative;
     overflow: hidden;

@@ -1,121 +1,88 @@
+import os
 from pathlib import Path
 from typing import Any
-
 import cv2
 import numpy as np
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from ultralytics import YOLO
 
+app = FastAPI(title="Triveni '26 Endurance Terminal")
+
+# --- PATHS ---
 APP_ROOT = Path(__file__).resolve().parent
-ASSETS_DIR = APP_ROOT / "assets"
-# Reuse the existing model from the original workspace root.
-MODEL_PATH = APP_ROOT.parent.parent / "yolov8n.pt"
+# We save our custom weights here
+MODEL_PATH = APP_ROOT / "triveni_dice_model.pt"
+DATASET_PATH = "C:/Users/anami/OneDrive/Desktop/my project/ETR/etr_fullstack/api/dataset/train"
 
-GARGANTUA_AMBER_BGR = (0, 176, 255)
-CONF_THRESHOLD = 0.75
-
-SECRET_CODES = {
-    "blue_cube": "SIGMA-3",
-    "red_cube": "OMEGA-9",
-    "cell phone": "GARGANTUA-1",
-    "person": "ENDURANCE-9",
+# --- TEAM CODES ---
+# These match the folder names in your dataset
+TEAM_CONFIG = {
+    "RED": "ALPHA-7",
+    "BLUE": "SIGMA-3",
+    "YELLOW": "DELTA-9"
 }
 
-
-def tars_line(message: str) -> str:
-    return f"[TARS]: {message}"
-
-
-print("[SYSTEM] Booting Endurance Mainframe...")
-if not MODEL_PATH.exists():
-    raise FileNotFoundError(f"Model file not found at {MODEL_PATH}")
-
-MODEL = YOLO(str(MODEL_PATH))
-print(tars_line("Model loaded once. Scanner online."))
-
-app = FastAPI(title="Escape The Room API", version="1.0.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Initialize with base classification model (wiping old object detection data)
+# This will be overwritten after you run the /train route
+MODEL = YOLO(str(MODEL_PATH)) if MODEL_PATH.exists() else YOLO("yolov8n-cls.pt")
 
-@app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok", "model": MODEL_PATH.name}
-
+@app.get("/train")
+async def train_model():
+    """Wipes old data and trains only on RED, BLUE, and YELLOW folders"""
+    try:
+        print("[SYSTEM] Erasing demo data... Initializing Clean Training.")
+        # Training strictly on your 3 folders
+        MODEL.train(
+            data=DATASET_PATH, 
+            epochs=25, 
+            imgsz=224, 
+            device=0  # Uses your Asus TUF NVIDIA GPU
+        )
+        # Export the trained model to our permanent path
+        MODEL.export(format="pt")
+        return {"status": "success", "message": "Model trained on Teams: Red, Blue, Yellow."}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)) -> dict[str, Any]:
-    if not file.content_type or not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="Upload must be an image file.")
-
     payload = await file.read()
     np_buffer = np.frombuffer(payload, dtype=np.uint8)
     image = cv2.imdecode(np_buffer, cv2.IMREAD_COLOR)
 
     if image is None:
-        raise HTTPException(status_code=400, detail="Could not decode uploaded image.")
+        raise HTTPException(status_code=400, detail="Invalid scan input.")
 
+    # Run the classification
     results = MODEL(image, verbose=False)[0]
+    
+    # Get top predicted team
+    top_class_idx = results.probs.top1
+    class_name = results.names[top_class_idx].upper() 
+    confidence = float(results.probs.top1conf)
 
-    detections: list[dict[str, Any]] = []
-    best_conf = 0.0
-    best_class = "UNKNOWN"
-
-    for box in results.boxes:
-        conf = float(box.conf[0])
-        class_id = int(box.cls[0])
-        class_name = str(MODEL.names[class_id])
-        x1, y1, x2, y2 = [int(v) for v in box.xyxy[0].tolist()]
-
-        if conf > best_conf:
-            best_conf = conf
-            best_class = class_name
-
-        detections.append(
-            {
-                "class": class_name,
-                "confidence": round(conf, 4),
-                "bbox": {"x1": x1, "y1": y1, "x2": x2, "y2": y2},
-            }
-        )
-
-        # Draw Gargantua Amber target lines in backend processing context.
-        cv2.rectangle(image, (x1, y1), (x2, y2), GARGANTUA_AMBER_BGR, 2)
-
-    if best_conf >= CONF_THRESHOLD and best_class in SECRET_CODES:
-        terminal_output = tars_line(
-            f"Target verified. Match: {best_class.upper()}. Confidence: {best_conf * 100:.0f}%."
-        )
-        access_code = SECRET_CODES[best_class]
-    elif detections:
-        terminal_output = tars_line(
-            f"Object recognized ({best_class.upper()}), but no valid Quantum Core confirmation."
-        )
-        access_code = "ACCESS DENIED"
+    if confidence > 0.75 and class_name in TEAM_CONFIG:
+        access_code = TEAM_CONFIG[class_name]
+        terminal_msg = f"[TARS]: Target {class_name} Verified. Code: {access_code}"
     else:
-        terminal_output = tars_line("No target detected. Awaiting visual input.")
-        access_code = "NO TARGET"
-
-    print(terminal_output)
+        access_code = "DENIED"
+        terminal_msg = f"[TARS]: Visual confirmation failed. Match: {class_name} ({confidence*100:.0f}%)"
 
     return {
         "success": True,
+        "team": class_name,
         "access_code": access_code,
-        "terminal": terminal_output,
-        "count": len(detections),
-        "detections": detections,
+        "terminal": terminal_msg
     }
 
-
 if __name__ == "__main__":
-    import os
     import uvicorn
-
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run("server:app", host="0.0.0.0", port=port, reload=False)
+    uvicorn.run(app, host="0.0.0.0", port=8000)

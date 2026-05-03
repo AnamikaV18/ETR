@@ -1,0 +1,10 @@
+# Use forward slashes (/) to avoid Windows path errors
+path: C:/Users/anami/OneDrive/Desktop/my project/ETR/etr_fullstack/api/dataset
+
+# These paths are relative to the 'path' above
+train: train/BLUE
+val: train/BLUE 
+
+# Class Names
+names:
+  0: blue_cube
