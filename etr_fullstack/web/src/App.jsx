@@ -428,9 +428,26 @@ function normalizePrediction(payload) {
 }
 
 function getDetectedObject(payload) {
-  if (!payload || !payload.detections || payload.detections.length === 0) return null;
-  const best = payload.detections[0];
-  return `${best.class.toUpperCase()} (${Math.round(best.confidence * 100)}%)`;
+  if (!payload) return null;
+
+  // 1. If Python sends a straightforward prediction (e.g. { prediction: "RED", confidence: 0.95 })
+  if (payload.prediction) {
+    const conf = payload.confidence ? ` (${Math.round(payload.confidence * 100)}%)` : "";
+    return `${String(payload.prediction).toUpperCase()}${conf}`;
+  }
+
+  // 2. If Python sends a simple class or result (e.g. { class: "BLUE" })
+  const fallback = payload.class || payload.label || payload.result || payload.access_code;
+  if (fallback) return String(fallback).toUpperCase();
+
+  // 3. Fallback for the original Object Detection format
+  if (payload.detections && payload.detections.length > 0) {
+    const best = payload.detections[0];
+    return `${String(best.class).toUpperCase()} (${Math.round(best.confidence * 100)}%)`;
+  }
+
+  // 4. If the data structure is completely unknown, show a warning instead of staying invisible
+  return "DATA RECEIVED (CHECK CONSOLE)";
 }
 
 export default function App() {
@@ -546,6 +563,7 @@ export default function App() {
       if (!response.ok) throw new Error(`Predict failed: ${response.status}`);
 
       const payload = await response.json().catch(() => ({ status: "RECEIVED" }));
+      console.log("🚨 RAW SERVER DATA:", payload);
       setScanResult(normalizePrediction(payload));
       setDetectedObject(getDetectedObject(payload));
       setPhase("complete");
