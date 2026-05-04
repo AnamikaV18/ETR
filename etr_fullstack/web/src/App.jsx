@@ -387,7 +387,67 @@ const appStyles = `
 
   @keyframes sweep { to { top: calc(100% + 3rem); } }
   @keyframes hardPulse { 0%, 100% { border-color: var(--etr-line-hard); } 50% { border-color: var(--etr-amber-bright); } }
+  /* THE CINEMATIC FULL-SCREEN OVERLAY */
+  .scan-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100; /* Forces it to the absolute top layer */
+    background: rgba(3, 3, 3, 0.92); /* Dark, mostly opaque background */
+    backdrop-filter: blur(6px); /* Blurs the camera behind it */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    animation: overlayFadeIn 0.3s forwards ease-out;
+  }
 
+  /* Glow effects based on success or failure */
+  .scan-overlay.success { color: var(--etr-amber-bright); text-shadow: 0 0 40px rgba(255, 193, 93, 0.25); }
+  .scan-overlay.error { color: var(--etr-red); text-shadow: 0 0 40px rgba(255, 101, 79, 0.25); }
+
+  .overlay-title {
+    font-family: var(--etr-font-display);
+    font-size: clamp(4rem, 12vw, 9rem);
+    font-weight: 900;
+    line-height: 1;
+    margin: 0;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .overlay-subtitle {
+    font-family: var(--etr-font-mono);
+    font-size: clamp(1rem, 2vw, 1.5rem);
+    letter-spacing: 0.4em;
+    margin-top: 1rem;
+    color: var(--etr-text);
+  }
+
+  .reset-button {
+    margin-top: 4rem;
+    padding: 1.2rem 2.5rem;
+    border: 1px solid currentColor;
+    background: rgba(3, 3, 3, 0.5);
+    color: inherit;
+    font-family: var(--etr-font-mono);
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .reset-button:hover {
+    background: currentColor;
+    color: var(--etr-black);
+    box-shadow: 0 0 20px currentColor;
+  }
+
+  @keyframes overlayFadeIn {
+    from { opacity: 0; transform: scale(1.02); }
+    to { opacity: 1; transform: scale(1); }
+  }
   @media (max-width: 980px) {
     html, body, #root, .escape-room-app { overflow: auto !important; height: auto !important; min-height: 100vh; }
     .er-header { grid-template-columns: 5.8rem 1fr 5.8rem; min-height: 7.5rem; }
@@ -536,8 +596,8 @@ export default function App() {
     const side = Math.min(video.videoWidth, video.videoHeight);
     const sx = (video.videoWidth - side) / 2;
     const sy = (video.videoHeight - side) / 2;
-    canvas.width = 768;
-    canvas.height = 768;
+    canvas.width = 224;
+    canvas.height = 224;
 
     const context = canvas.getContext("2d");
     if (!context) {
@@ -595,7 +655,12 @@ export default function App() {
       captureAndPredict();
     }, 5000);
   }, [captureAndPredict, isScanning]);
-
+  const resetScan = useCallback(() => {
+    setPhase("idle");
+    setScanResult("STANDBY");
+    setRemaining(5);
+    setDetectedObject(null);
+  }, []);
   // FIX: Force IST (Asia/Kolkata) Timezone format
   const missionTime = clock
     ? clock.toLocaleTimeString("en-GB", { hour12: false, timeZone: "Asia/Kolkata" })
@@ -784,6 +849,26 @@ export default function App() {
           </div>
         </aside>
       </section>
+      {/* THE CINEMATIC FULL-SCREEN OVERLAY */}
+      {(phase === "complete" || phase === "unrecognized") && (
+        <div className={`scan-overlay ${phase === "complete" ? "success" : "error"}`}>
+          <div className="overlay-subtitle">
+            {phase === "complete" ? "TARGET ACQUIRED" : "SIGNATURE REJECTED"}
+          </div>
+          
+          <h2 className="overlay-title">
+            {phase === "complete" ? detectedObject.split(' ')[0] : "UNRECOGNIZED"}
+          </h2>
+          
+          <div className="overlay-subtitle">
+            {phase === "complete" ? `CONFIDENCE: ${detectedObject.split(' ')[1].replace(/[()]/g, '')}` : "THRESHOLD FAILED"}
+          </div>
+          
+          <button className="reset-button" onClick={resetScan}>
+            INITIALIZE NEW SCAN
+          </button>
+        </div>
+      )}
     </main>
   );
 }
