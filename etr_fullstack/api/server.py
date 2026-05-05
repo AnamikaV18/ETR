@@ -80,7 +80,8 @@ async def predict(file: UploadFile = File(...)) -> dict[str, Any]:
         "success": True,
         "team": class_name,
         "access_code": access_code,
-        "terminal": terminal_msg
+        "terminal": terminal_msg,
+        "result": access_code  # <-- ADD THIS EXACT LINE
     }
 
 if __name__ == "__main__":

@@ -861,7 +861,9 @@ export default function App() {
           </h2>
           
           <div className="overlay-subtitle">
-            {phase === "complete" ? `CONFIDENCE: ${detectedObject.split(' ')[1].replace(/[()]/g, '')}` : "THRESHOLD FAILED"}
+            {phase === "complete" 
+              ? `CONFIDENCE: ${detectedObject?.split(' ')[1]?.replace(/[()]/g, '') || 'VERIFIED'}` 
+              : "THRESHOLD FAILED"}
           </div>
           
           <button className="reset-button" onClick={resetScan}>
